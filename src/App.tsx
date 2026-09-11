@@ -1,0 +1,197 @@
+import React, { useState, useEffect } from 'react';
+import { apiBridge } from './services/apiBridge';
+import { Room, Reservation, Admin, Coupon, Settings, AuditLog, ConnectionConfig } from './types';
+import { AndroidFrame, GuestTab } from './components/AndroidFrame';
+import { ExploreTab } from './components/ExploreTab';
+import { BookingModal } from './components/BookingModal';
+import { ReservationsTab } from './components/ReservationsTab';
+import { DealsTab } from './components/DealsTab';
+import { ResortGuideTab } from './components/ResortGuideTab';
+import { ConnectionModal } from './components/ConnectionModal';
+import { AndroidInstallModal } from './components/AndroidInstallModal';
+import { RoomDetailsModal } from './components/RoomDetailsModal';
+import { usePWAInstall } from './hooks/usePWAInstall';
+import { CheckCircle2, Sparkles, X } from 'lucide-react';
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<GuestTab>('explore');
+  
+  // State from apiBridge
+  const [rooms, setRooms] = useState<Room[]>(apiBridge.getRooms());
+  const [reservations, setReservations] = useState<Reservation[]>(apiBridge.getReservations());
+  const [coupons, setCoupons] = useState<Coupon[]>(apiBridge.getCoupons());
+  const [settings, setSettings] = useState<Settings>(apiBridge.getSettings());
+  const [logs, setLogs] = useState<AuditLog[]>(apiBridge.getLogs());
+  const [connection, setConnection] = useState<ConnectionConfig>(apiBridge.getConnection());
+  const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(apiBridge.getCurrentAdmin());
+
+  // Modal states
+  const [bookingRoom, setBookingRoom] = useState<Room | null>(null);
+  const [detailsRoom, setDetailsRoom] = useState<Room | null>(null);
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [successToast, setSuccessToast] = useState<{ title: string; message: string; code?: string } | null>(null);
+
+  // PWA install hook
+  const { isInstallable, install } = usePWAInstall();
+
+  // Subscribe to apiBridge changes
+  useEffect(() => {
+    const unsubscribe = apiBridge.subscribe(() => {
+      setRooms([...apiBridge.getRooms()]);
+      setReservations([...apiBridge.getReservations()]);
+      setCoupons([...apiBridge.getCoupons()]);
+      setSettings({ ...apiBridge.getSettings() });
+      setLogs([...apiBridge.getLogs()]);
+      setConnection({ ...apiBridge.getConnection() });
+      setCurrentAdmin(apiBridge.getCurrentAdmin());
+    });
+    return unsubscribe;
+  }, []);
+
+  // Background auto-sync if URL is configured
+  useEffect(() => {
+    if (!connection.backendUrl || !connection.autoSync) return;
+
+    // Initial background sync check
+    apiBridge.syncWithLiveBackend().catch(() => {});
+
+    // Periodic sync every 15 seconds
+    const timer = setInterval(() => {
+      apiBridge.syncWithLiveBackend().catch(() => {});
+    }, 15000);
+
+    return () => clearInterval(timer);
+  }, [connection.backendUrl, connection.autoSync]);
+
+  const handleBookingSuccess = (newRes: Reservation) => {
+    setSuccessToast({
+      title: 'Booking Confirmed!',
+      message: `Your reservation code is ${newRes.code}. Downpayment: ₱${newRes.downpayment_amount.toLocaleString()}. Check-in: ${newRes.check_in}.`,
+      code: newRes.code
+    });
+    setActiveTab('bookings');
+  };
+
+  return (
+    <AndroidFrame
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      connection={connection}
+      onOpenConnectionModal={() => setShowConnectionModal(true)}
+      onOpenInstallModal={() => setShowInstallModal(true)}
+      isInstallable={isInstallable}
+      activeBookingCount={reservations.length}
+    >
+      {/* Toast Notification */}
+      {successToast && (
+        <div className="p-3.5 bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border border-emerald-500/40 rounded-2xl text-xs text-white shadow-xl flex items-start justify-between gap-3 animate-in slide-in-from-top duration-300">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-white text-xs">{successToast.title}</h4>
+              <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                {successToast.message}
+              </p>
+              {successToast.code && (
+                <div className="mt-1 font-mono text-[10px] text-cyan-400 font-bold">
+                  Reference: {successToast.code}
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setSuccessToast(null)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* TAB 1: EXPLORE */}
+      {activeTab === 'explore' && (
+        <ExploreTab
+          rooms={rooms}
+          onSelectRoom={(room) => setBookingRoom(room)}
+          onViewDetails={(room) => setDetailsRoom(room)}
+        />
+      )}
+
+      {/* TAB 2: MY BOOKINGS / TRACK */}
+      {activeTab === 'bookings' && (
+        <ReservationsTab
+          reservations={reservations}
+          settings={settings}
+          onExtendEta={async (code, newEta, note) => {
+            return await apiBridge.extendEta(code, newEta, note);
+          }}
+        />
+      )}
+
+      {/* TAB 3: DEALS */}
+      {activeTab === 'deals' && (
+        <DealsTab
+          coupons={coupons}
+          onSelectCoupon={(code) => {
+            setActiveTab('explore');
+          }}
+        />
+      )}
+
+      {/* TAB 4: GUEST SERVICES & RESORT GUIDE */}
+      {activeTab === 'guide' && (
+        <ResortGuideTab
+          settings={settings}
+          onOpenBooking={() => {
+            const avail = rooms.find(r => !r.is_full) || rooms[0];
+            setBookingRoom(avail);
+          }}
+        />
+      )}
+
+      {/* MODAL 1: BOOKING BOTTOM SHEET */}
+      {bookingRoom && (
+        <BookingModal
+          room={bookingRoom}
+          settings={settings}
+          onClose={() => setBookingRoom(null)}
+          onSubmit={(data) => apiBridge.createBooking(data)}
+          onValidateCoupon={(code) => apiBridge.validateCoupon(code)}
+          onBookingSuccess={handleBookingSuccess}
+        />
+      )}
+
+      {/* MODAL 2: ROOM DETAILS & GALLERY */}
+      {detailsRoom && (
+        <RoomDetailsModal
+          room={detailsRoom}
+          onClose={() => setDetailsRoom(null)}
+          onBookNow={(room) => {
+            setDetailsRoom(null);
+            setBookingRoom(room);
+          }}
+        />
+      )}
+
+      {/* MODAL 3: CONNECTION & MYSQL CONFIG */}
+      {showConnectionModal && (
+        <ConnectionModal
+          config={connection}
+          onClose={() => setShowConnectionModal(false)}
+          onUpdateConfig={(newConfig) => apiBridge.updateConnectionConfig(newConfig)}
+          onSyncNow={() => apiBridge.syncWithLiveBackend()}
+        />
+      )}
+
+      {/* MODAL 4: ANDROID INSTALL MODAL */}
+      {showInstallModal && (
+        <AndroidInstallModal
+          onClose={() => setShowInstallModal(false)}
+          isInstallable={isInstallable}
+          onInstall={install}
+        />
+      )}
+    </AndroidFrame>
+  );
+}

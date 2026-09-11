@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c4a6e" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <linearGradient id="sun" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <linearGradient id="sand" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="100%" stop-color="#fde047" />
+    </linearGradient>
+  </defs>
+  <!-- App Icon Background squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#bg)" />
+  <!-- Golden Sun -->
+  <circle cx="256" cy="180" r="88" fill="url(#sun)" opacity="0.95" />
+  <!-- Horizon Waves -->
+  <path d="M64 330 Q 160 300 256 330 T 448 330 L 448 448 L 64 448 Z" fill="#0284c7" opacity="0.7" />
+  <path d="M64 365 Q 160 340 256 365 T 448 365 L 448 448 L 64 448 Z" fill="#0369a1" opacity="0.9" />
+  <!-- Palm Trees and Resort Roof Silhouette -->
+  <g fill="#f59e0b">
+    <!-- Center Resort Villa Icon -->
+    <path d="M 216 260 L 256 220 L 296 260 L 286 260 L 286 310 L 226 310 L 226 260 Z" fill="#ffffff" />
+    <polygon points="256,200 190,250 322,250" fill="#f59e0b" />
+    <!-- Pillars -->
+    <rect x="238" y="260" width="12" height="50" fill="#f8fafc" />
+    <rect x="262" y="260" width="12" height="50" fill="#f8fafc" />
+  </g>
+  <!-- Stars -->
+  <path d="M 120 120 L 126 135 L 142 135 L 129 145 L 134 160 L 120 150 L 106 160 L 111 145 L 98 135 L 114 135 Z" fill="#fde68a" opacity="0.8" />
+  <path d="M 390 110 L 395 122 L 408 122 L 398 130 L 402 142 L 390 134 L 378 142 L 382 130 L 372 122 L 385 122 Z" fill="#fde68a" opacity="0.8" />
+</svg>
