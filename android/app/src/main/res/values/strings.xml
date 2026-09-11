@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Grand Horizon Resort</string>
+    <string name="title_activity_main">Grand Horizon Resort</string>
+    <string name="package_name">com.grandhorizon.resort</string>
+    <string name="custom_url_scheme">com.grandhorizon.resort</string>
+</resources>

@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Grand Horizon Resort",
+  "short_name": "GrandHorizon",
+  "description": "Android mobile application for Grand Horizon Luxury Resort & Beach Spa reservation system.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0c4a6e",
+  "theme_color": "#0c4a6e",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
