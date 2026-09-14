@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { apiBridge } from './services/apiBridge';
-import { Room, Reservation, Admin, Coupon, Settings, AuditLog, ConnectionConfig } from './types';
+import { Room, Reservation, Coupon, Settings, ConnectionConfig } from './types';
 import { AndroidFrame, GuestTab } from './components/AndroidFrame';
 import { ExploreTab } from './components/ExploreTab';
 import { BookingModal } from './components/BookingModal';
 import { ReservationsTab } from './components/ReservationsTab';
 import { DealsTab } from './components/DealsTab';
 import { ResortGuideTab } from './components/ResortGuideTab';
-import { ConnectionModal } from './components/ConnectionModal';
-import { AndroidInstallModal } from './components/AndroidInstallModal';
 import { RoomDetailsModal } from './components/RoomDetailsModal';
-import { usePWAInstall } from './hooks/usePWAInstall';
-import { CheckCircle2, Sparkles, X } from 'lucide-react';
+import { CheckCircle2, X } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<GuestTab>('explore');
@@ -21,19 +18,12 @@ export default function App() {
   const [reservations, setReservations] = useState<Reservation[]>(apiBridge.getReservations());
   const [coupons, setCoupons] = useState<Coupon[]>(apiBridge.getCoupons());
   const [settings, setSettings] = useState<Settings>(apiBridge.getSettings());
-  const [logs, setLogs] = useState<AuditLog[]>(apiBridge.getLogs());
   const [connection, setConnection] = useState<ConnectionConfig>(apiBridge.getConnection());
-  const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(apiBridge.getCurrentAdmin());
 
   // Modal states
   const [bookingRoom, setBookingRoom] = useState<Room | null>(null);
   const [detailsRoom, setDetailsRoom] = useState<Room | null>(null);
-  const [showConnectionModal, setShowConnectionModal] = useState(false);
-  const [showInstallModal, setShowInstallModal] = useState(false);
   const [successToast, setSuccessToast] = useState<{ title: string; message: string; code?: string } | null>(null);
-
-  // PWA install hook
-  const { isInstallable, install } = usePWAInstall();
 
   // Subscribe to apiBridge changes
   useEffect(() => {
@@ -42,9 +32,7 @@ export default function App() {
       setReservations([...apiBridge.getReservations()]);
       setCoupons([...apiBridge.getCoupons()]);
       setSettings({ ...apiBridge.getSettings() });
-      setLogs([...apiBridge.getLogs()]);
       setConnection({ ...apiBridge.getConnection() });
-      setCurrentAdmin(apiBridge.getCurrentAdmin());
     });
     return unsubscribe;
   }, []);
@@ -78,9 +66,6 @@ export default function App() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       connection={connection}
-      onOpenConnectionModal={() => setShowConnectionModal(true)}
-      onOpenInstallModal={() => setShowInstallModal(true)}
-      isInstallable={isInstallable}
       activeBookingCount={reservations.length}
     >
       {/* Toast Notification */}
@@ -171,25 +156,6 @@ export default function App() {
             setDetailsRoom(null);
             setBookingRoom(room);
           }}
-        />
-      )}
-
-      {/* MODAL 3: CONNECTION & MYSQL CONFIG */}
-      {showConnectionModal && (
-        <ConnectionModal
-          config={connection}
-          onClose={() => setShowConnectionModal(false)}
-          onUpdateConfig={(newConfig) => apiBridge.updateConnectionConfig(newConfig)}
-          onSyncNow={() => apiBridge.syncWithLiveBackend()}
-        />
-      )}
-
-      {/* MODAL 4: ANDROID INSTALL MODAL */}
-      {showInstallModal && (
-        <AndroidInstallModal
-          onClose={() => setShowInstallModal(false)}
-          isInstallable={isInstallable}
-          onInstall={install}
         />
       )}
     </AndroidFrame>

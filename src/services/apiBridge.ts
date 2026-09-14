@@ -179,66 +179,7 @@ export const DEFAULT_COUPONS: Coupon[] = [
   }
 ];
 
-export const DEFAULT_RESERVATIONS: Reservation[] = [
-  {
-    id: 101,
-    code: 'RES-801',
-    guest_name: 'Maria Santos',
-    contact: '09171234567',
-    room_id: 'R1',
-    room_title: 'Oceanfront Villa with Private Plunge Pool',
-    check_in: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    check_out: new Date(Date.now() + 172800000).toISOString().split('T')[0],
-    nights: 1,
-    guests_adults: 2,
-    guests_children: 0,
-    has_breakfast: 1,
-    breakfast_fee: 500,
-    total_price: 13000,
-    downpayment_amount: 6500,
-    remaining_balance: 6500,
-    arrival_time: '14:00',
-    eta_extended: 0,
-    eta_note: null,
-    ref_no: 'GCASH-99881122',
-    payment_method: 'E-Wallet',
-    payment_option: '50% Downpayment',
-    status: '1st Confirmed (Awaiting Arrival)',
-    coupon_code: null,
-    discount_amount: 0,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 102,
-    code: 'RES-452',
-    guest_name: 'Carlos Mendoza',
-    contact: '09189876543',
-    room_id: 'C2',
-    room_title: 'Airconditioned VIP Family Cottage with Videoke',
-    check_in: new Date().toISOString().split('T')[0],
-    check_out: new Date().toISOString().split('T')[0],
-    nights: 1,
-    guests_adults: 10,
-    guests_children: 2,
-    has_breakfast: 0,
-    breakfast_fee: 0,
-    total_price: 3150,
-    downpayment_amount: 3150,
-    remaining_balance: 0,
-    arrival_time: '10:00',
-    eta_extended: 0,
-    eta_note: null,
-    ref_no: 'MAYA-88123019',
-    payment_method: 'E-Wallet',
-    payment_option: 'Full Payment (100%)',
-    balance_payment_method: 'E-Wallet',
-    balance_ref_no: 'MAYA-88123019',
-    status: '2nd Confirmed (Checked-In & Fully Paid)',
-    coupon_code: 'WELCOME10',
-    discount_amount: 350,
-    created_at: new Date(Date.now() - 3600000).toISOString()
-  }
-];
+export const DEFAULT_RESERVATIONS: Reservation[] = [];
 
 export const DEFAULT_ADMINS: Admin[] = [
   {
@@ -328,13 +269,14 @@ export class ResortApiBridge {
 
   constructor() {
     this.rooms = loadStored('rooms', DEFAULT_ROOMS);
-    this.reservations = loadStored('reservations', DEFAULT_RESERVATIONS);
+    this.reservations = loadStored('reservations', DEFAULT_RESERVATIONS).filter(
+      (r: Reservation) => r.code !== 'RES-801' && r.code !== 'RES-452'
+    );
     this.admins = loadStored('admins', DEFAULT_ADMINS);
     this.coupons = loadStored('coupons', DEFAULT_COUPONS);
     this.settings = loadStored('settings', DEFAULT_SETTINGS);
     this.logs = loadStored('logs', [
-      { id: 1, timestamp: '10:00 AM', text: 'Resort Mobile System connected to Grand Horizon Database.' },
-      { id: 2, timestamp: '10:15 AM', text: 'Reservation RES-801 created for Maria Santos (Pending 1st Confirmation).' }
+      { id: 1, timestamp: '10:00 AM', text: 'Resort Guest Portal online and connected to Grand Horizon Database.' }
     ]);
     this.recoveryRequests = loadStored('recovery_requests', []);
     this.connection = loadStored('connection', INITIAL_CONNECTION);
@@ -539,7 +481,7 @@ export class ResortApiBridge {
         }
 
         if (Array.isArray(parsed.reservations)) {
-          this.reservations = parsed.reservations.map((res: any) => ({
+          const remoteList: Reservation[] = parsed.reservations.map((res: any) => ({
             ...res,
             total_price: parseFloat(res.total_price) || 0,
             downpayment_amount: parseFloat(res.downpayment_amount) || 0,
@@ -552,6 +494,12 @@ export class ResortApiBridge {
             has_breakfast: parseInt(res.has_breakfast, 10) || 0,
             eta_extended: parseInt(res.eta_extended, 10) || 0
           }));
+
+          const remoteCodes = new Set(remoteList.map((r: Reservation) => r.code));
+          // Keep any locally created reservations not yet returned by remote (prevents bookings from disappearing)
+          const localOnly = this.reservations.filter((r: Reservation) => !remoteCodes.has(r.code) && r.code !== 'RES-801' && r.code !== 'RES-452');
+
+          this.reservations = [...localOnly, ...remoteList];
         }
 
         if (parsed.settings && typeof parsed.settings === 'object') {
@@ -706,28 +654,45 @@ export class ResortApiBridge {
     this.addAuditLog(`New mobile reservation ${code} submitted for ${data.guest_name} (${initialStatus}). Total: ₱${totalPrice.toLocaleString()}.`);
     this.notify();
 
-    // If connected to live PHP backend, forward POST action
-    if (this.connection.isConnected && this.connection.backendUrl) {
-      this.sendPostAction('create_booking', {
-        room_id: data.room_id,
-        check_in: data.check_in,
-        check_out: data.check_out,
-        guest_name: data.guest_name,
-        contact: data.contact,
-        payment_method: data.payment_method,
-        ref_no: newReservation.ref_no,
-        arrival_time: data.arrival_time,
-        payment_option: data.payment_option,
-        guests_adults: data.guests_adults,
-        guests_children: data.guests_children,
-        has_breakfast: data.has_breakfast ? 1 : 0,
-        coupon_code: data.coupon_code || ''
-      });
+    // Forward POST action to live PHP backend and sync code from MySQL
+    if (this.connection.backendUrl) {
+      try {
+        const backendRes = await this.sendPostAction('create_booking', {
+          room_id: data.room_id,
+          check_in: data.check_in,
+          check_out: data.check_out,
+          guest_name: data.guest_name,
+          contact: data.contact,
+          payment_method: data.payment_method,
+          ref_no: newReservation.ref_no,
+          arrival_time: data.arrival_time,
+          payment_option: data.payment_option,
+          guests_adults: data.guests_adults,
+          guests_children: data.guests_children,
+          has_breakfast: data.has_breakfast ? 1 : 0,
+          coupon_code: data.coupon_code || '',
+          room_title: room.title,
+          nights: nights,
+          total_price: totalPrice,
+          downpayment_amount: downpayment,
+          remaining_balance: remainingBalance,
+          breakfast_fee: breakfastFee,
+          discount_amount: discountAmount
+        });
+
+        if (backendRes && backendRes.status === 'success' && backendRes.code) {
+          newReservation.code = backendRes.code;
+          this.saveAll();
+          this.notify();
+        }
+      } catch (err) {
+        console.warn('Backend sync failed:', err);
+      }
     }
 
     return {
       status: 'success',
-      message: `Reservation Submitted! Ref Code: ${code}. Initial Downpayment: ₱${downpayment.toLocaleString()}`,
+      message: `Reservation Confirmed & Saved to Database! Booking Code: ${newReservation.code}. Downpayment: ₱${downpayment.toLocaleString()}`,
       reservation: newReservation
     };
   }
@@ -960,36 +925,68 @@ export class ResortApiBridge {
   }
 
   // Send action to live backend
-  private async sendPostAction(action: string, payload: Record<string, any>) {
+  private async sendPostAction(action: string, payload: Record<string, any>): Promise<{ status?: string; code?: string; message?: string } | null> {
     try {
       let url = this.connection.backendUrl;
-      if (!url) return;
+      if (!url) return null;
       if (url.startsWith('http://')) {
         url = url.replace(/^http:\/\//i, 'https://');
       }
 
-      const formData = new FormData();
-      formData.append('action', action);
+      const params = new URLSearchParams();
+      params.append('action', action);
       for (const key in payload) {
         if (payload[key] !== undefined && payload[key] !== null) {
-          formData.append(key, String(payload[key]));
+          params.append(key, String(payload[key]));
         }
       }
+      const bodyStr = params.toString();
 
+      let res: Response | null = null;
+      // 1. Try local proxy first (bypasses browser iframe CORS and InfinityFree bot challenge)
       try {
-        await fetch(url, {
+        const proxyResp = await fetch(`/api/proxy?target=${encodeURIComponent(url)}`, {
           method: 'POST',
-          body: formData,
-          mode: 'cors'
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json, text/plain, */*'
+          },
+          body: bodyStr
         });
-      } catch (e) {
-        // Fallback to proxy
-        await fetch(`/api/proxy?target=${encodeURIComponent(url)}`, {
-          method: 'POST',
-          body: formData
-        }).catch(() => {});
+        if (proxyResp.ok) {
+          res = proxyResp;
+        }
+      } catch (proxyErr) {
+        // Ignore and fallback to direct
       }
-    } catch (e) {}
+
+      // 2. Direct fallback
+      if (!res || !res.ok) {
+        try {
+          res = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Accept': 'application/json, text/plain, */*'
+            },
+            body: bodyStr,
+            mode: 'cors'
+          });
+        } catch (directErr) {}
+      }
+
+      if (res && res.ok) {
+        const text = await res.text();
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          return JSON.parse(text.substring(jsonStart, jsonEnd + 1));
+        }
+      }
+    } catch (e) {
+      console.warn('sendPostAction error:', e);
+    }
+    return null;
   }
 }
 

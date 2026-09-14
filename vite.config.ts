@@ -27,13 +27,21 @@ export default defineConfig(() => {
               const targetObj = new URL(target);
               const client = targetObj.protocol === 'https:' ? https : http;
 
+              const headers: Record<string, string> = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Origin': targetObj.origin
+              };
+              if (req.headers['content-type']) {
+                headers['Content-Type'] = req.headers['content-type'] as string;
+              }
+              if (req.headers['content-length']) {
+                headers['Content-Length'] = req.headers['content-length'] as string;
+              }
+
               const proxyReq = client.request(target, {
                 method: req.method || 'GET',
-                headers: {
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                  'Accept': 'application/json, text/plain, */*',
-                  'Origin': targetObj.origin
-                }
+                headers
               }, (proxyRes) => {
                 res.statusCode = proxyRes.statusCode || 200;
                 res.setHeader('Content-Type', proxyRes.headers['content-type'] || 'application/json');
