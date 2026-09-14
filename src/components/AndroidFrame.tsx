@@ -3,7 +3,8 @@ import {
   Compass, 
   Calendar, 
   Tag, 
-  Info
+  Info,
+  HelpCircle
 } from 'lucide-react';
 import { ConnectionConfig } from '../types';
 
@@ -15,13 +16,15 @@ interface AndroidFrameProps {
   onTabChange: (tab: GuestTab) => void;
   connection: ConnectionConfig;
   activeBookingCount?: number;
+  onOpenInstructions?: () => void;
 }
 
 export const AndroidFrame: React.FC<AndroidFrameProps> = ({
   children,
   activeTab,
   onTabChange,
-  activeBookingCount = 0
+  activeBookingCount = 0,
+  onOpenInstructions
 }) => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-0 md:py-6 md:px-4 selection:bg-cyan-500 selection:text-white">
@@ -45,7 +48,16 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-full bg-slate-800/90 border border-slate-700/60 text-slate-300 font-medium text-[11px] tracking-wide">
+            {onOpenInstructions && (
+              <button
+                onClick={onOpenInstructions}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-cyan-950/80 border border-cyan-700/60 text-cyan-300 hover:bg-cyan-900/80 text-xs font-semibold tracking-wide transition shadow-sm"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
+                <span>How to Use</span>
+              </button>
+            )}
+            <span className="hidden sm:inline-block px-2.5 py-1 rounded-full bg-slate-800/90 border border-slate-700/60 text-slate-300 font-medium text-[11px] tracking-wide">
               Guest Portal
             </span>
           </div>

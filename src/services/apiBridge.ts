@@ -265,6 +265,7 @@ export class ResortApiBridge {
   private recoveryRequests: RecoveryRequest[];
   private connection: ConnectionConfig;
   private currentAdmin: Admin | null = null;
+  private myBookingCodes: string[] = [];
   private listeners: Set<() => void> = new Set();
 
   constructor() {
@@ -281,6 +282,13 @@ export class ResortApiBridge {
     this.recoveryRequests = loadStored('recovery_requests', []);
     this.connection = loadStored('connection', INITIAL_CONNECTION);
     this.currentAdmin = loadStored('current_admin', null);
+    this.myBookingCodes = loadStored('my_booking_codes', []);
+
+    // Link existing test bookings on first load of this device if any exist
+    if (this.myBookingCodes.length === 0 && this.reservations.length > 0) {
+      this.myBookingCodes = this.reservations.map(r => r.code);
+      saveStored('my_booking_codes', this.myBookingCodes);
+    }
 
     this.recalculateAvailableUnits();
   }
@@ -307,6 +315,7 @@ export class ResortApiBridge {
     saveStored('recovery_requests', this.recoveryRequests);
     saveStored('connection', this.connection);
     saveStored('current_admin', this.currentAdmin);
+    saveStored('my_booking_codes', this.myBookingCodes);
   }
 
   private recalculateAvailableUnits() {
@@ -339,6 +348,49 @@ export class ResortApiBridge {
   // Getters
   public getRooms(): Room[] { return this.rooms; }
   public getReservations(): Reservation[] { return this.reservations; }
+  
+  // Guest-Private reservations only (associated with this device)
+  public getMyReservations(): Reservation[] {
+    const codeSet = new Set(this.myBookingCodes.map(c => c.trim().toUpperCase()));
+    return this.reservations.filter(r => codeSet.has(r.code.trim().toUpperCase()));
+  }
+
+  public getMyBookingCodes(): string[] {
+    return [...this.myBookingCodes];
+  }
+
+  // Claim or Link an existing reservation to this device by code
+  public claimBooking(code: string): { success: boolean; message: string; reservation?: Reservation } {
+    const cleanCode = code.trim().toUpperCase();
+    const found = this.reservations.find(r => r.code.trim().toUpperCase() === cleanCode);
+    if (!found) {
+      return {
+        success: false,
+        message: `Booking reference "${code}" not found. Please verify your reference code (e.g. RES-841).`
+      };
+    }
+
+    if (!this.myBookingCodes.some(c => c.trim().toUpperCase() === cleanCode)) {
+      this.myBookingCodes.unshift(found.code);
+      this.saveAll();
+      this.notify();
+    }
+
+    return {
+      success: true,
+      message: `Reservation ${found.code} found and saved to your device!`,
+      reservation: found
+    };
+  }
+
+  // Remove a past booking from this device's private list
+  public removeMyBooking(code: string): void {
+    const cleanCode = code.trim().toUpperCase();
+    this.myBookingCodes = this.myBookingCodes.filter(c => c.trim().toUpperCase() !== cleanCode);
+    this.saveAll();
+    this.notify();
+  }
+
   public getAdmins(): Admin[] { return this.admins; }
   public getCoupons(): Coupon[] { return this.coupons; }
   public getSettings(): Settings { return this.settings; }
@@ -650,6 +702,7 @@ export class ResortApiBridge {
     };
 
     this.reservations.unshift(newReservation);
+    this.myBookingCodes.unshift(newReservation.code);
     this.recalculateAvailableUnits();
     this.addAuditLog(`New mobile reservation ${code} submitted for ${data.guest_name} (${initialStatus}). Total: ₱${totalPrice.toLocaleString()}.`);
     this.notify();
@@ -681,7 +734,15 @@ export class ResortApiBridge {
         });
 
         if (backendRes && backendRes.status === 'success' && backendRes.code) {
+          const oldCode = newReservation.code;
           newReservation.code = backendRes.code;
+          // Update code in myBookingCodes
+          const idx = this.myBookingCodes.indexOf(oldCode);
+          if (idx !== -1) {
+            this.myBookingCodes[idx] = backendRes.code;
+          } else if (!this.myBookingCodes.includes(backendRes.code)) {
+            this.myBookingCodes.unshift(backendRes.code);
+          }
           this.saveAll();
           this.notify();
         }

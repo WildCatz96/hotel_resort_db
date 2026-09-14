@@ -25,9 +25,10 @@ import {
 interface ResortGuideTabProps {
   settings: Settings;
   onOpenBooking: () => void;
+  onOpenInstructions?: () => void;
 }
 
-export const ResortGuideTab: React.FC<ResortGuideTabProps> = ({ settings, onOpenBooking }) => {
+export const ResortGuideTab: React.FC<ResortGuideTabProps> = ({ settings, onOpenBooking, onOpenInstructions }) => {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [showFullQr, setShowFullQr] = useState(false);
 
@@ -73,6 +74,25 @@ export const ResortGuideTab: React.FC<ResortGuideTabProps> = ({ settings, onOpen
         </div>
         <div className="absolute right-0 -bottom-8 w-44 h-44 bg-cyan-400/10 rounded-full blur-2xl pointer-events-none" />
       </div>
+
+      {/* How to Use App Guide Card */}
+      {onOpenInstructions && (
+        <button
+          onClick={onOpenInstructions}
+          className="w-full text-left p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/70 via-slate-900 to-slate-900 border border-cyan-700/50 hover:border-cyan-400 transition flex items-center justify-between gap-3 shadow-md group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center border border-cyan-500/40 shrink-0 group-hover:scale-105 transition">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition">How to Use the Guest Portal</h4>
+              <p className="text-[11px] text-slate-400">Step-by-step instructions for booking, downpayment QR & private stays</p>
+            </div>
+          </div>
+          <ChevronDown className="w-4 h-4 text-cyan-400 -rotate-90 group-hover:translate-x-1 transition shrink-0" />
+        </button>
+      )}
 
       {/* Quick Action Hotline Cards */}
       <div className="grid grid-cols-2 gap-2.5">

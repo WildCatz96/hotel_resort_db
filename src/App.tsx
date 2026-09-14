@@ -8,14 +8,21 @@ import { ReservationsTab } from './components/ReservationsTab';
 import { DealsTab } from './components/DealsTab';
 import { ResortGuideTab } from './components/ResortGuideTab';
 import { RoomDetailsModal } from './components/RoomDetailsModal';
+import { OpeningSplashScreen } from './components/OpeningSplashScreen';
+import { HowToUseModal } from './components/HowToUseModal';
 import { CheckCircle2, X } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<GuestTab>('explore');
   
+  // Loading & Guide Modal States
+  const [showSplash, setShowSplash] = useState(true);
+  const [showInstructions, setShowInstructions] = useState(false);
+  
   // State from apiBridge
   const [rooms, setRooms] = useState<Room[]>(apiBridge.getRooms());
   const [reservations, setReservations] = useState<Reservation[]>(apiBridge.getReservations());
+  const [myReservations, setMyReservations] = useState<Reservation[]>(apiBridge.getMyReservations());
   const [coupons, setCoupons] = useState<Coupon[]>(apiBridge.getCoupons());
   const [settings, setSettings] = useState<Settings>(apiBridge.getSettings());
   const [connection, setConnection] = useState<ConnectionConfig>(apiBridge.getConnection());
@@ -30,6 +37,7 @@ export default function App() {
     const unsubscribe = apiBridge.subscribe(() => {
       setRooms([...apiBridge.getRooms()]);
       setReservations([...apiBridge.getReservations()]);
+      setMyReservations([...apiBridge.getMyReservations()]);
       setCoupons([...apiBridge.getCoupons()]);
       setSettings({ ...apiBridge.getSettings() });
       setConnection({ ...apiBridge.getConnection() });
@@ -61,103 +69,133 @@ export default function App() {
     setActiveTab('bookings');
   };
 
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+    // If first time, show the How to Use guide once
+    const hasSeenGuide = localStorage.getItem('gh_resort_seen_guide');
+    if (!hasSeenGuide) {
+      setShowInstructions(true);
+      localStorage.setItem('gh_resort_seen_guide', 'true');
+    }
+  };
+
   return (
-    <AndroidFrame
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
-      connection={connection}
-      activeBookingCount={reservations.length}
-    >
-      {/* Toast Notification */}
-      {successToast && (
-        <div className="p-3.5 bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border border-emerald-500/40 rounded-2xl text-xs text-white shadow-xl flex items-start justify-between gap-3 animate-in slide-in-from-top duration-300">
-          <div className="flex items-start gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-bold text-white text-xs">{successToast.title}</h4>
-              <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
-                {successToast.message}
-              </p>
-              {successToast.code && (
-                <div className="mt-1 font-mono text-[10px] text-cyan-400 font-bold">
-                  Reference: {successToast.code}
-                </div>
-              )}
+    <>
+      {/* 1. Opening Loading Screen */}
+      {showSplash && (
+        <OpeningSplashScreen onComplete={handleSplashComplete} />
+      )}
+
+      {/* 2. Main Guest Mobile Frame */}
+      <AndroidFrame
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        connection={connection}
+        activeBookingCount={myReservations.length}
+        onOpenInstructions={() => setShowInstructions(true)}
+      >
+        {/* Toast Notification */}
+        {successToast && (
+          <div className="p-3.5 bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border border-emerald-500/40 rounded-2xl text-xs text-white shadow-xl flex items-start justify-between gap-3 animate-in slide-in-from-top duration-300">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-white text-xs">{successToast.title}</h4>
+                <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                  {successToast.message}
+                </p>
+                {successToast.code && (
+                  <div className="mt-1 font-mono text-[10px] text-cyan-400 font-bold">
+                    Reference: {successToast.code}
+                  </div>
+                )}
+              </div>
             </div>
+            <button
+              onClick={() => setSuccessToast(null)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={() => setSuccessToast(null)}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* TAB 1: EXPLORE */}
-      {activeTab === 'explore' && (
-        <ExploreTab
-          rooms={rooms}
-          onSelectRoom={(room) => setBookingRoom(room)}
-          onViewDetails={(room) => setDetailsRoom(room)}
-        />
-      )}
+        {/* TAB 1: EXPLORE */}
+        {activeTab === 'explore' && (
+          <ExploreTab
+            rooms={rooms}
+            onSelectRoom={(room) => setBookingRoom(room)}
+            onViewDetails={(room) => setDetailsRoom(room)}
+            onOpenInstructions={() => setShowInstructions(true)}
+          />
+        )}
 
-      {/* TAB 2: MY BOOKINGS / TRACK */}
-      {activeTab === 'bookings' && (
-        <ReservationsTab
-          reservations={reservations}
-          settings={settings}
-          onExtendEta={async (code, newEta, note) => {
-            return await apiBridge.extendEta(code, newEta, note);
-          }}
-        />
-      )}
+        {/* TAB 2: MY BOOKINGS / TRACK (PRIVATE TO THIS USER/DEVICE) */}
+        {activeTab === 'bookings' && (
+          <ReservationsTab
+            reservations={myReservations}
+            settings={settings}
+            onExtendEta={async (code, newEta, note) => {
+              return await apiBridge.extendEta(code, newEta, note);
+            }}
+            onClaimBooking={(code) => apiBridge.claimBooking(code)}
+            onRemoveBooking={(code) => apiBridge.removeMyBooking(code)}
+            onNavigateExplore={() => setActiveTab('explore')}
+            onOpenInstructions={() => setShowInstructions(true)}
+          />
+        )}
 
-      {/* TAB 3: DEALS */}
-      {activeTab === 'deals' && (
-        <DealsTab
-          coupons={coupons}
-          onSelectCoupon={(code) => {
-            setActiveTab('explore');
-          }}
-        />
-      )}
+        {/* TAB 3: DEALS */}
+        {activeTab === 'deals' && (
+          <DealsTab
+            coupons={coupons}
+            onSelectCoupon={(code) => {
+              setActiveTab('explore');
+            }}
+          />
+        )}
 
-      {/* TAB 4: GUEST SERVICES & RESORT GUIDE */}
-      {activeTab === 'guide' && (
-        <ResortGuideTab
-          settings={settings}
-          onOpenBooking={() => {
-            const avail = rooms.find(r => !r.is_full) || rooms[0];
-            setBookingRoom(avail);
-          }}
-        />
-      )}
+        {/* TAB 4: GUEST SERVICES & RESORT GUIDE */}
+        {activeTab === 'guide' && (
+          <ResortGuideTab
+            settings={settings}
+            onOpenBooking={() => {
+              const avail = rooms.find(r => !r.is_full) || rooms[0];
+              setBookingRoom(avail);
+            }}
+            onOpenInstructions={() => setShowInstructions(true)}
+          />
+        )}
 
-      {/* MODAL 1: BOOKING BOTTOM SHEET */}
-      {bookingRoom && (
-        <BookingModal
-          room={bookingRoom}
-          settings={settings}
-          onClose={() => setBookingRoom(null)}
-          onSubmit={(data) => apiBridge.createBooking(data)}
-          onValidateCoupon={(code) => apiBridge.validateCoupon(code)}
-          onBookingSuccess={handleBookingSuccess}
-        />
-      )}
+        {/* MODAL 1: BOOKING BOTTOM SHEET */}
+        {bookingRoom && (
+          <BookingModal
+            room={bookingRoom}
+            settings={settings}
+            onClose={() => setBookingRoom(null)}
+            onSubmit={(data) => apiBridge.createBooking(data)}
+            onValidateCoupon={(code) => apiBridge.validateCoupon(code)}
+            onBookingSuccess={handleBookingSuccess}
+          />
+        )}
 
-      {/* MODAL 2: ROOM DETAILS & GALLERY */}
-      {detailsRoom && (
-        <RoomDetailsModal
-          room={detailsRoom}
-          onClose={() => setDetailsRoom(null)}
-          onBookNow={(room) => {
-            setDetailsRoom(null);
-            setBookingRoom(room);
-          }}
-        />
-      )}
-    </AndroidFrame>
+        {/* MODAL 2: ROOM DETAILS & GALLERY */}
+        {detailsRoom && (
+          <RoomDetailsModal
+            room={detailsRoom}
+            onClose={() => setDetailsRoom(null)}
+            onBookNow={(room) => {
+              setDetailsRoom(null);
+              setBookingRoom(room);
+            }}
+          />
+        )}
+
+        {/* MODAL 3: HOW TO USE INSTRUCTIONS GUIDE */}
+        {showInstructions && (
+          <HowToUseModal onClose={() => setShowInstructions(false)} />
+        )}
+      </AndroidFrame>
+    </>
   );
 }

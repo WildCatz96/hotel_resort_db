@@ -21,6 +21,7 @@ interface ExploreTabProps {
   rooms: Room[];
   onSelectRoom: (room: Room) => void;
   onViewDetails: (room: Room) => void;
+  onOpenInstructions?: () => void;
 }
 
 const CATEGORIES = [
@@ -34,7 +35,12 @@ const CATEGORIES = [
   'Beach Entrance'
 ];
 
-export const ExploreTab: React.FC<ExploreTabProps> = ({ rooms, onSelectRoom, onViewDetails }) => {
+export const ExploreTab: React.FC<ExploreTabProps> = ({ 
+  rooms, 
+  onSelectRoom, 
+  onViewDetails,
+  onOpenInstructions 
+}) => {
   const [selectedCategory, setSelectedCategory] = useState('All Accommodations');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -99,6 +105,25 @@ export const ExploreTab: React.FC<ExploreTabProps> = ({ rooms, onSelectRoom, onV
           </button>
         )}
       </div>
+
+      {/* Quick How-to-Use Guide Card */}
+      {onOpenInstructions && (
+        <button
+          onClick={onOpenInstructions}
+          className="w-full text-left p-3 rounded-2xl bg-gradient-to-r from-cyan-950/70 via-slate-900 to-slate-900 border border-cyan-800/50 hover:border-cyan-500/60 transition flex items-center justify-between gap-3 shadow-sm group"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center border border-cyan-500/30 shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition">How to Book & Use this App</h4>
+              <p className="text-[11px] text-slate-400">Guide for room selection, GCash downpayment & private stays</p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-cyan-300 transition shrink-0" />
+        </button>
+      )}
 
       {/* Horizontal Category Chips (Android Material 3 Style) */}
       <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none -mx-1 px-1">
