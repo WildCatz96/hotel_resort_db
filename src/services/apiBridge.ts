@@ -477,6 +477,12 @@ export class ResortApiBridge {
         const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
         const resolveImg = (img: string): string => {
           if (!img) return '';
+          if (img.startsWith('uploads/')) {
+            return `/api/proxy?target=${encodeURIComponent(`http://catzhouse.kesug.com/${img}`)}`;
+          }
+          if (img.startsWith('http://catzhouse.kesug.com/')) {
+            return `/api/proxy?target=${encodeURIComponent(img)}`;
+          }
           if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:')) return img;
           return `${baseUrl}${img.replace(/^\//, '')}`;
         };
@@ -549,7 +555,10 @@ export class ResortApiBridge {
           const resolveQr = (qr: string | undefined) => {
             if (!qr) return '/assets/qr_actual.png';
             if (qr.startsWith('uploads/')) {
-              return `http://catzhouse.kesug.com/${qr}`;
+              return `/api/proxy?target=${encodeURIComponent(`http://catzhouse.kesug.com/${qr}`)}`;
+            }
+            if (qr.startsWith('http://catzhouse.kesug.com/')) {
+              return `/api/proxy?target=${encodeURIComponent(qr)}`;
             }
             if (qr.includes('qrserver.com')) {
               return '/assets/qr_actual.png';
@@ -744,18 +753,27 @@ export class ResortApiBridge {
           discount_amount: discountAmount
         });
 
-        if (backendRes && backendRes.status === 'success' && backendRes.code) {
-          const oldCode = newReservation.code;
-          newReservation.code = backendRes.code;
-          // Update code in myBookingCodes
-          const idx = this.myBookingCodes.indexOf(oldCode);
-          if (idx !== -1) {
-            this.myBookingCodes[idx] = backendRes.code;
-          } else if (!this.myBookingCodes.includes(backendRes.code)) {
-            this.myBookingCodes.unshift(backendRes.code);
+        if (backendRes) {
+          if (backendRes.status === 'success' && backendRes.code) {
+            const oldCode = newReservation.code;
+            newReservation.code = backendRes.code;
+            const idx = this.myBookingCodes.indexOf(oldCode);
+            if (idx !== -1) {
+              this.myBookingCodes[idx] = backendRes.code;
+            } else if (!this.myBookingCodes.includes(backendRes.code)) {
+              this.myBookingCodes.unshift(backendRes.code);
+            }
+            this.saveAll();
+            this.notify();
+
+            // Refresh the live database state immediately
+            await this.syncWithLiveBackend().catch(() => {});
+          } else if (backendRes.status === 'error') {
+            return {
+              status: 'error',
+              message: backendRes.message || 'The resort server could not complete the reservation.'
+            };
           }
-          this.saveAll();
-          this.notify();
         }
       } catch (err) {
         console.warn('Backend sync failed:', err);
