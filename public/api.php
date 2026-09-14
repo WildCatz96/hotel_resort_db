@@ -95,25 +95,17 @@ if ($conn->connect_error) {
         setting_value TEXT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-    // Seed default coupons if empty
-    $check_cpn = $conn->query("SELECT COUNT(*) as cnt FROM coupons");
-    if ($check_cpn && ($row = $check_cpn->fetch_assoc()) && $row['cnt'] == 0) {
-        $conn->query("INSERT IGNORE INTO coupons (code, discount_type, discount_value, max_uses, times_used, status) VALUES
-            ('HORIZON2026', 'percentage', 15.00, 100, 0, 'Active'),
-            ('BEACHFUN500', 'fixed', 500.00, 50, 0, 'Active'),
-            ('WELCOME10', 'percentage', 10.00, 200, 0, 'Active');");
-    }
-
-    // Seed settings if empty
+    // Do NOT seed fake default coupons - coupons are created exclusively by admin in website admin panel
+    // Seed settings if empty with actual resort payment QR
     $check_set = $conn->query("SELECT COUNT(*) as cnt FROM settings");
     if ($check_set && ($row = $check_set->fetch_assoc()) && $row['cnt'] == 0) {
         $conn->query("INSERT IGNORE INTO settings (setting_key, setting_value) VALUES
             ('payment_qr_provider', 'GCash / Maya'),
             ('payment_qr_name', 'Grand Horizon Luxury Resort Inc.'),
             ('payment_qr_number', '0917-888-9999'),
-            ('payment_qr_url', 'https://api.qrserver.com/v1/create-qr-code/?data=GCASH-GRAND-HORIZON-RESORT-09178889999&size=300x300'),
+            ('payment_qr_url', 'uploads/qr_1787787888_6398.png'),
             ('checkout_time_overnight', '12:00 PM (Noon)'),
-            ('checkout_time_dayuse', '12:00 Midnight');");
+            ('checkout_time_dayuse', '10:00 PM');");
     }
 }
 
@@ -241,17 +233,24 @@ if ($action === 'create_booking' && $method === 'POST') {
     }
 
     $code = 'RES-' . rand(100, 999);
+    $nights = isset($_POST['nights']) ? intval($_POST['nights']) : 1;
+    $room_title = isset($_POST['room_title']) && !empty($_POST['room_title']) ? trim($_POST['room_title']) : "Resort Accommodation ($room_id)";
+    $total_price = isset($_POST['total_price']) ? floatval($_POST['total_price']) : 0;
+    $downpayment_amount = isset($_POST['downpayment_amount']) ? floatval($_POST['downpayment_amount']) : 0;
+    $remaining_balance = isset($_POST['remaining_balance']) ? floatval($_POST['remaining_balance']) : 0;
+    $breakfast_fee = isset($_POST['breakfast_fee']) ? floatval($_POST['breakfast_fee']) : 0;
+    $discount_amount = isset($_POST['discount_amount']) ? floatval($_POST['discount_amount']) : 0;
 
     if ($db_connected) {
         $stmt = $conn->prepare("INSERT INTO reservations 
-            (code, guest_name, contact, room_id, room_title, check_in, check_out, arrival_time, ref_no, payment_option, has_breakfast, guests_adults, guests_children, coupon_code, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending 1st Confirmation')");
+            (code, guest_name, contact, room_id, room_title, check_in, check_out, nights, arrival_time, ref_no, payment_option, has_breakfast, breakfast_fee, total_price, downpayment_amount, remaining_balance, guests_adults, guests_children, coupon_code, discount_amount, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending 1st Confirmation')");
         
-        $room_title = "Resort Accommodation (" . $room_id . ")";
-        $stmt->bind_param("sssssssssiisss", 
+        $stmt->bind_param("ssssssissssddddiissd", 
             $code, $guest_name, $contact, $room_id, $room_title, 
-            $check_in, $check_out, $arrival_time, $ref_no, $payment_option, 
-            $has_breakfast, $guests_adults, $guests_children, $coupon_code
+            $check_in, $check_out, $nights, $arrival_time, $ref_no, $payment_option, 
+            $has_breakfast, $breakfast_fee, $total_price, $downpayment_amount, $remaining_balance,
+            $guests_adults, $guests_children, $coupon_code, $discount_amount
         );
         $stmt->execute();
     }

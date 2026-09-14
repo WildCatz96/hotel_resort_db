@@ -58,11 +58,11 @@ const INSTRUCTION_STEPS = [
       },
       {
         bold: 'Guests & Breakfast Buffet:',
-        desc: 'Enter the number of adults and children. Optionally add the daily Breakfast Buffet (₱350/guest).'
+        desc: 'Enter the number of adults and children. Optionally add the daily Breakfast Buffet (₱250/guest).'
       },
       {
-        bold: 'Discount Coupons:',
-        desc: 'Check the "Deals" tab for active promo codes (e.g. HORIZON2026 for 15% OFF) and apply them for instant savings.'
+        bold: 'Vouchers & Promos:',
+        desc: 'If you have an official promotional or voucher code from resort management, enter it during checkout for instant savings.'
       }
     ]
   },

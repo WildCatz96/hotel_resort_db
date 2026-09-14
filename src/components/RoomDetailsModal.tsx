@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Room } from '../types';
+import { resolveResortImageUrl } from '../services/apiBridge';
 import { 
   X, 
   Users, 
@@ -27,7 +28,7 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const images = room.images && room.images.length > 0 
-    ? room.images 
+    ? room.images.map(img => resolveResortImageUrl(img, 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80'))
     : ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80'];
 
   const nextImage = () => {
@@ -48,6 +49,9 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
             src={images[activeImageIndex]}
             alt={room.title}
             referrerPolicy="no-referrer"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80';
+            }}
             className="w-full h-full object-cover transition-all duration-300"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-black/50" />

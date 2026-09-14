@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Room, Settings, Coupon, Reservation } from '../types';
+import { resolveResortImageUrl } from '../services/apiBridge';
 import { 
   X, 
   Calendar, 
@@ -396,7 +397,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="e.g. HORIZON2026, WELCOME10"
+                placeholder="Enter promo or voucher code (optional)"
                 value={couponInput}
                 onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                 className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-cyan-500 uppercase tracking-wider"
@@ -473,10 +474,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               {/* QR Image Preview */}
               <div className="flex items-center gap-3 bg-slate-950 p-2 rounded-lg border border-slate-800">
                 <img
-                  src={settings.payment_qr_url || 'https://api.qrserver.com/v1/create-qr-code/?data=GCASH-GRAND-HORIZON-RESORT&size=200x200'}
+                  src={resolveResortImageUrl(settings.payment_qr_url, '/assets/qr_actual.png')}
                   alt="Payment QR"
                   referrerPolicy="no-referrer"
-                  className="w-16 h-16 rounded bg-white p-1 object-contain"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/assets/qr_actual.png';
+                  }}
+                  className="w-16 h-16 rounded bg-white p-1 object-contain cursor-pointer hover:opacity-90 transition shadow"
+                  onClick={() => setShowQrZoom(true)}
                 />
                 <div className="flex-1 text-[11px] text-slate-300">
                   <p>Scan using GCash, Maya, or any InstaPay app.</p>
@@ -592,8 +597,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             <h4 className="font-bold text-white text-sm">{settings.payment_qr_provider} Official QR</h4>
             <div className="bg-white p-3 rounded-2xl inline-block shadow-xl">
               <img
-                src={settings.payment_qr_url}
+                src={resolveResortImageUrl(settings.payment_qr_url, '/assets/qr_actual.png')}
                 alt="Enlarged QR"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/assets/qr_actual.png';
+                }}
                 className="w-56 h-56 object-contain"
               />
             </div>

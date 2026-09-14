@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Room } from '../types';
+import { resolveResortImageUrl } from '../services/apiBridge';
 import { 
   Users, 
   Maximize, 
@@ -163,7 +164,7 @@ export const ExploreTab: React.FC<ExploreTabProps> = ({
           filteredRooms.map((room) => {
             const isFull = room.is_full || room.available_units <= 0;
             const mainImg = room.images && room.images.length > 0 
-              ? room.images[0] 
+              ? resolveResortImageUrl(room.images[0], 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80')
               : 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80';
 
             return (
@@ -177,6 +178,9 @@ export const ExploreTab: React.FC<ExploreTabProps> = ({
                     src={mainImg}
                     alt={room.title}
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80';
+                    }}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="lazy"
                   />

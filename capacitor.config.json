@@ -3,6 +3,7 @@
   "appName": "Grand Horizon Resort",
   "webDir": "dist",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "cleartext": true
   }
 }

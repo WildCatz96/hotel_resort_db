@@ -134,6 +134,23 @@ export const DEFAULT_ROOMS: Room[] = [
     capacity: '1 Person',
     size: 'Resort Grounds',
     features: ['Full Beach Access', 'Infinity Pool Access', 'Shower & Changing Rooms', 'Sun Loungers']
+  },
+  {
+    id: 'R995',
+    title: 'Cottage',
+    category: 'Cottage',
+    price: 2000,
+    status: 'Available',
+    units_count: 7,
+    available_units: 7,
+    is_full: false,
+    images: [
+      'http://catzhouse.kesug.com/uploads/room_1787643827_789.jpg',
+      'http://catzhouse.kesug.com/uploads/room_1787643827_852.jpg'
+    ],
+    capacity: '4 Guests',
+    size: 'Resort Grounds',
+    features: ['Native Wooden Cottage', 'Picnic Table & Benches', 'Fresh Ocean Breeze', 'Direct Beachfront Access']
   }
 ];
 
@@ -141,43 +158,15 @@ export const DEFAULT_SETTINGS: Settings = {
   payment_qr_provider: 'GCash / Maya',
   payment_qr_name: 'Grand Horizon Luxury Resort Inc.',
   payment_qr_number: '0917-888-9999',
-  payment_qr_url: 'https://api.qrserver.com/v1/create-qr-code/?data=GCASH-GRAND-HORIZON-RESORT-09178889999&size=300x300',
+  payment_qr_url: '/assets/qr_actual.png',
   semaphore_api_key: '',
   sms_confirm_template: 'Dear {GUEST}, your booking {CODE} for {ROOM} has been CONFIRMED! Total: PHP {TOTAL}. Thank you!',
   sms_reject_template: 'Dear {GUEST}, your booking {CODE} was declined. Reason: {REASON}. Please contact front desk.',
   checkout_time_overnight: '12:00 PM (Noon)',
-  checkout_time_dayuse: '12:00 Midnight'
+  checkout_time_dayuse: '10:00 PM'
 };
 
-export const DEFAULT_COUPONS: Coupon[] = [
-  {
-    id: 1,
-    code: 'HORIZON2026',
-    discount_type: 'percentage',
-    discount_value: 15,
-    max_uses: 100,
-    times_used: 12,
-    status: 'Active'
-  },
-  {
-    id: 2,
-    code: 'BEACHFUN500',
-    discount_type: 'fixed',
-    discount_value: 500,
-    max_uses: 50,
-    times_used: 8,
-    status: 'Active'
-  },
-  {
-    id: 3,
-    code: 'WELCOME10',
-    discount_type: 'percentage',
-    discount_value: 10,
-    max_uses: 200,
-    times_used: 34,
-    status: 'Active'
-  }
-];
+export const DEFAULT_COUPONS: Coupon[] = [];
 
 export const DEFAULT_RESERVATIONS: Reservation[] = [];
 
@@ -220,10 +209,10 @@ export const DEFAULT_ADMINS: Admin[] = [
 ];
 
 export const INITIAL_CONNECTION: ConnectionConfig = {
-  backendUrl: 'https://catzhouse.kesug.com/api.php',
-  isConnected: false,
-  lastSyncTimestamp: null,
-  syncStatus: 'idle',
+  backendUrl: 'http://catzhouse.kesug.com/api.php',
+  isConnected: true,
+  lastSyncTimestamp: Date.now(),
+  syncStatus: 'connected',
   errorMessage: null,
   dbHost: 'sql311.infinityfree.com',
   dbName: 'if0_42682733_hotel_resort_db',
@@ -237,10 +226,17 @@ function loadStored<T>(key: string, fallback: T): T {
   try {
     const item = localStorage.getItem(STORAGE_KEY_PREFIX + key);
     if (!item) return fallback;
-    const parsed = JSON.parse(item);
+    let parsed = JSON.parse(item);
     if (key === 'connection' && parsed && typeof parsed === 'object') {
-      if (!parsed.backendUrl || parsed.backendUrl.includes('grandhorizon') || parsed.backendUrl.startsWith('http://catzhouse.kesug.com')) {
-        parsed.backendUrl = 'https://catzhouse.kesug.com/api.php';
+      parsed.backendUrl = 'http://catzhouse.kesug.com/api.php';
+    }
+    if (key === 'coupons' && Array.isArray(parsed)) {
+      // Clear legacy hardcoded coupons if user hasn't created any
+      parsed = parsed.filter((c: any) => c.code !== 'HORIZON2026' && c.code !== 'BEACHFUN500' && c.code !== 'WELCOME10');
+    }
+    if (key === 'settings' && parsed && typeof parsed === 'object') {
+      if (!parsed.payment_qr_url || parsed.payment_qr_url.includes('qrserver.com')) {
+        parsed.payment_qr_url = '/assets/qr_actual.png';
       }
     }
     return parsed;
@@ -411,12 +407,6 @@ export class ResortApiBridge {
       return { success: false, message: 'Please enter your live website PHP URL first.' };
     }
 
-    // Auto-upgrade http to https for browser security and mixed content compliance
-    if (url.startsWith('http://')) {
-      url = url.replace(/^http:\/\//i, 'https://');
-      this.connection.backendUrl = url;
-    }
-
     this.connection.syncStatus = 'syncing';
     this.notify();
 
@@ -555,11 +545,32 @@ export class ResortApiBridge {
         }
 
         if (parsed.settings && typeof parsed.settings === 'object') {
-          this.settings = { ...this.settings, ...parsed.settings };
+          const s = parsed.settings;
+          const resolveQr = (qr: string | undefined) => {
+            if (!qr) return '/assets/qr_actual.png';
+            if (qr.startsWith('uploads/')) {
+              return `http://catzhouse.kesug.com/${qr}`;
+            }
+            if (qr.includes('qrserver.com')) {
+              return '/assets/qr_actual.png';
+            }
+            return qr;
+          };
+
+          this.settings = {
+            ...this.settings,
+            ...s,
+            payment_qr_url: resolveQr(s.payment_qr_url),
+            payment_qr_name: s.payment_qr_name || 'Grand Horizon Luxury Resort Inc.',
+            payment_qr_number: s.payment_qr_number || '0917-888-9999'
+          };
         }
 
         if (Array.isArray(parsed.coupons)) {
-          this.coupons = parsed.coupons;
+          // Filter out dummy test coupons so app only displays real vouchers created by admin
+          this.coupons = parsed.coupons.filter(
+            (c: any) => c.code !== 'HORIZON2026' && c.code !== 'BEACHFUN500' && c.code !== 'WELCOME10'
+          );
         }
 
         if (Array.isArray(parsed.admins)) {
@@ -988,11 +999,8 @@ export class ResortApiBridge {
   // Send action to live backend
   private async sendPostAction(action: string, payload: Record<string, any>): Promise<{ status?: string; code?: string; message?: string } | null> {
     try {
-      let url = this.connection.backendUrl;
+      const url = this.connection.backendUrl;
       if (!url) return null;
-      if (url.startsWith('http://')) {
-        url = url.replace(/^http:\/\//i, 'https://');
-      }
 
       const params = new URLSearchParams();
       params.append('action', action);
@@ -1052,3 +1060,14 @@ export class ResortApiBridge {
 }
 
 export const apiBridge = new ResortApiBridge();
+
+export function resolveResortImageUrl(url: string | undefined | null, fallback: string = '/assets/qr_actual.png'): string {
+  if (!url) return fallback;
+  if (url.startsWith('uploads/')) {
+    return `http://catzhouse.kesug.com/${url}`;
+  }
+  if (url.includes('qrserver.com')) {
+    return fallback;
+  }
+  return url;
+}
