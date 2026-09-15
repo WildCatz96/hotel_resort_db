@@ -34,9 +34,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   onUpdateConfig,
   onSyncNow
 }) => {
-  const initialUrl = config.backendUrl.startsWith('http://catzhouse') 
-    ? config.backendUrl.replace(/^http:\/\//i, 'https://') 
-    : config.backendUrl || 'https://catzhouse.kesug.com/api.php';
+  const initialUrl = config.backendUrl || 'http://catzhouse.kesug.com/api.php';
 
   const [urlInput, setUrlInput] = useState(initialUrl);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -47,10 +45,6 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
   const handleTestSync = async () => {
     let cleanUrl = urlInput.trim();
-    if (cleanUrl.startsWith('http://')) {
-      cleanUrl = cleanUrl.replace(/^http:\/\//i, 'https://');
-      setUrlInput(cleanUrl);
-    }
     onUpdateConfig({ backendUrl: cleanUrl });
     setIsSyncing(true);
     setResultMsg(null);
